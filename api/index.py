@@ -4,39 +4,69 @@ import sys
 import os
 import pickle
 import numpy as np
-
-# Add parent directory to path to import helper
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from WEB.helper import query_point_creator
+import traceback
 
 # Get the base directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLIC_DIR = os.path.join(BASE_DIR, 'public')
+WEB_DIR = os.path.join(BASE_DIR, 'WEB')
+
+# Add paths
+sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, WEB_DIR)
+
+# Import helper after path setup
+try:
+    from WEB.helper import query_point_creator
+except ImportError as e:
+    print(f"Error importing helper: {e}")
+    query_point_creator = None
 
 app = Flask(__name__, static_folder=PUBLIC_DIR, static_url_path='')
 CORS(app)
 
 # Load model and vectorizer
+model = None
 try:
-    model = pickle.load(open(os.path.join(BASE_DIR, 'WEB', 'model.pkl'), 'rb'))
+    model_path = os.path.join(WEB_DIR, 'model.pkl')
+    if os.path.exists(model_path):
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        print(f"Model loaded successfully from {model_path}")
+    else:
+        print(f"Model file not found at {model_path}")
 except Exception as e:
     print(f"Error loading model: {e}")
-    model = None
+    traceback.print_exc()
 
 @app.route('/')
 def home():
-    return send_from_directory(PUBLIC_DIR, 'index.html')
+    try:
+        return send_from_directory(PUBLIC_DIR, 'index.html')
+    except Exception as e:
+        return jsonify({
+            "status": "success",
+            "message": "Duplicate Question Pair Detection API",
+            "endpoints": {
+                "check": "/api/check",
+                "health": "/api/health"
+            }
+        })
 
 @app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({
         "status": "healthy",
-        "model_loaded": model is not None
+        "model_loaded": model is not None,
+        "helper_loaded": query_point_creator is not None
     })
 
 @app.route('/api/check', methods=['POST'])
 def check_duplicate():
     try:
+        if not request.is_json:
+            return jsonify({"error": "Content-Type must be application/json"}), 400
+        
         data = request.get_json()
         
         if not data:
@@ -50,6 +80,9 @@ def check_duplicate():
         
         if model is None:
             return jsonify({"error": "Model not loaded"}), 500
+        
+        if query_point_creator is None:
+            return jsonify({"error": "Helper functions not loaded"}), 500
         
         # Create query point
         query = query_point_creator(q1, q2)
@@ -67,7 +100,19 @@ def check_duplicate():
         })
     
     except Exception as e:
+        print(f"Error in check_duplicate: {e}")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/test', methods=['GET'])
+def test():
+    return jsonify({
+        "status": "API is working",
+        "base_dir": BASE_DIR,
+        "web_dir": WEB_DIR,
+        "public_dir": PUBLIC_DIR,
+        "model_loaded": model is not None
+    })
 
 if __name__ == '__main__':
     app.run(debug=False)
