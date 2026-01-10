@@ -1,0 +1,15 @@
+.git
+.gitignore
+*.ipynb
+*.csv
+node_modules
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+EDA.ipynb
+BOW.ipynb
+bow (basic-features).ipynb
+train.csv
+new/

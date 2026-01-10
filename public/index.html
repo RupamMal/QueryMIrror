@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duplicate Question Pair Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 5px;
+            display: none;
+            animation: slideIn 0.3s ease-in-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .result.duplicate {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+        
+        .result.not-duplicate {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .result-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .result.duplicate .result-title {
+            color: #d32f2f;
+        }
+        
+        .result.not-duplicate .result-title {
+            color: #388e3c;
+        }
+        
+        .probability {
+            margin-top: 12px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .probability-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+        
+        .probability-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #d32f2f;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Duplicate Question Pair Detector</h1>
+        
+        <form id="duplicationForm">
+            <div class="form-group">
+                <label for="q1">Question 1:</label>
+                <textarea id="q1" placeholder="Enter the first question..." required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="q2">Question 2:</label>
+                <textarea id="q2" placeholder="Enter the second question..." required></textarea>
+            </div>
+            
+            <button type="submit" id="checkBtn">Check for Duplicates</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #667eea;">Analyzing questions...</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="result" id="result">
+            <div class="result-title" id="resultTitle"></div>
+            <p id="resultText"></p>
+            <div class="probability">
+                <div>Probability Duplicate: <strong id="probDuplicate">0%</strong></div>
+                <div class="probability-bar">
+                    <div class="probability-fill" id="probBar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('duplicationForm');
+        const q1 = document.getElementById('q1');
+        const q2 = document.getElementById('q2');
+        const checkBtn = document.getElementById('checkBtn');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const result = document.getElementById('result');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultText = document.getElementById('resultText');
+        const probDuplicate = document.getElementById('probDuplicate');
+        const probBar = document.getElementById('probBar');
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!q1.value.trim() || !q2.value.trim()) {
+                showError('Please enter both questions');
+                return;
+            }
+            
+            error.style.display = 'none';
+            result.style.display = 'none';
+            loading.style.display = 'block';
+            checkBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/check', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        q1: q1.value.trim(),
+                        q2: q2.value.trim()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'An error occurred');
+                }
+                
+                displayResult(data);
+            } catch (err) {
+                showError(err.message || 'Failed to check duplicates. Please try again.');
+            } finally {
+                loading.style.display = 'none';
+                checkBtn.disabled = false;
+            }
+        });
+        
+        function displayResult(data) {
+            const isDuplicate = data.is_duplicate;
+            const probDup = (data.probability_duplicate * 100).toFixed(2);
+            
+            resultTitle.textContent = isDuplicate ? '✓ Duplicate' : '✗ Not Duplicate';
+            resultText.textContent = isDuplicate 
+                ? 'These questions appear to be asking the same thing.' 
+                : 'These questions are asking different things.';
+            
+            probDuplicate.textContent = probDup + '%';
+            probBar.style.width = probDup + '%';
+            
+            result.className = 'result ' + (isDuplicate ? 'duplicate' : 'not-duplicate');
+            result.style.display = 'block';
+        }
+        
+        function showError(message) {
+            error.textContent = message;
+            error.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
