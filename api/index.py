@@ -29,10 +29,28 @@ CORS(app)
 model = None
 try:
     model_path = os.path.join(WEB_DIR, 'model.pkl')
+    # If model missing, attempt to download from environment variable MODEL_URL
+    if not os.path.exists(model_path):
+        model_url = os.getenv('MODEL_URL')
+        if model_url:
+            try:
+                import requests
+                print(f"Model not found locally; downloading from MODEL_URL: {model_url}")
+                resp = requests.get(model_url, timeout=30)
+                resp.raise_for_status()
+                with open(model_path, 'wb') as mf:
+                    mf.write(resp.content)
+                print(f"Downloaded model to {model_path}")
+            except Exception as de:
+                print(f"Failed to download model from MODEL_URL: {de}")
     if os.path.exists(model_path):
-        with open(model_path, 'rb') as f:
-            model = pickle.load(f)
-        print(f"Model loaded successfully from {model_path}")
+        try:
+            with open(model_path, 'rb') as f:
+                model = pickle.load(f)
+            print(f"Model loaded successfully from {model_path}")
+        except Exception as le:
+            print(f"Error unpickling model at {model_path}: {le}")
+            traceback.print_exc()
     else:
         print(f"Model file not found at {model_path}")
 except Exception as e:
